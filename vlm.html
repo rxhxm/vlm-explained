@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vision Language Model (VLM) Visualization</title>
+    <style>
+        :root {
+            --background: #0e0b14;
+            --card-bg: #17131f;
+            --text: #ffffff;
+            --accent: #fc4baa;
+            --primary: #7c6bff;
+            --secondary: #4f4db3;
+            --card-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background: var(--background);
+            color: var(--text);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 20px;
+        }
+
+        .accent {
+            color: var(--accent);
+        }
+
+        .description {
+            font-size: 1.2rem;
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+
+        .scroll-indicator {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            animation: bounce 2s infinite;
+            color: var(--accent);
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0) translateX(-50%);
+            }
+            40% {
+                transform: translateY(-20px) translateX(-50%);
+            }
+            60% {
+                transform: translateY(-10px) translateX(-50%);
+            }
+        }
+
+        /* Progress bar on the side */
+        .progress-container {
+            position: fixed;
+            top: 50%;
+            right: 30px;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            z-index: 100;
+        }
+
+        .progress-step {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .progress-step.active {
+            background: var(--accent);
+            transform: scale(1.5);
+        }
+
+        .step-section {
+            min-height: 60vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 60px 0;
+            opacity: 0.3;
+            transition: opacity 0.5s ease;
+        }
+
+        .step-section.active {
+            opacity: 1;
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 40px;
+        }
+
+        .step-number {
+            font-size: 4rem;
+            font-weight: 700;
+            color: var(--accent);
+            margin-right: 20px;
+            opacity: 0.6;
+        }
+
+        .step-title {
+            font-size: 2rem;
+            font-weight: 600;
+        }
+
+        .step-content {
+            display: flex;
+            gap: 50px;
+            margin-top: 20px;
+            align-items: center;
+        }
+
+        .step-visual {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 300px;
+            padding: 20px;
+            background: var(--card-bg);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--card-border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .step-explanation {
+            flex: 1;
+        }
+
+        .step-explanation p {
+            font-size: 1.1rem;
+            line-height: 1.8;
+            margin-bottom: 15px;
+        }
+
+        /* Visualization elements */
+        .mock-image {
+            width: 280px;
+            height: 280px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .shape {
+            position: absolute;
+            transition: all 0.5s ease;
+        }
+
+        .circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--primary);
+        }
+
+        .square {
+            width: 50px;
+            height: 50px;
+            background: var(--accent);
+        }
+
+        .triangle {
+            width: 0;
+            height: 0;
+            border-left: 30px solid transparent;
+            border-right: 30px solid transparent;
+            border-bottom: 50px solid #50c878;
+        }
+
+        .visual-features-container {
+            width: 280px;
+            height: 280px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .visual-feature {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            opacity: 0;
+            transform: scale(0);
+            transition: all 0.6s ease;
+        }
+
+        .step-section.active .visual-feature {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .embedding-container {
+            width: 280px;
+            height: 280px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .embedding-vector {
+            position: absolute;
+            width: 2px;
+            background: var(--accent);
+            transform-origin: center bottom;
+            height: 0;
+            transition: height 0.8s ease;
+        }
+
+        .step-section.active .embedding-vector {
+            height: var(--vector-height);
+        }
+
+        .attention-container {
+            width: 280px;
+            height: 280px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(3, 1fr);
+            gap: 15px;
+            align-items: center;
+            justify-items: center;
+        }
+
+        .attention-head {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            transform: scale(0);
+            opacity: 0;
+            transition: all 0.5s ease;
+            position: relative;
+        }
+
+        .step-section.active .attention-head {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .attention-head::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            z-index: 2;
+        }
+
+        .step-section.active .attention-head::after {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                width: 0;
+                height: 0;
+                opacity: 1;
+            }
+            100% {
+                width: 150%;
+                height: 150%;
+                opacity: 0;
+            }
+        }
+
+        .text-output-container {
+            width: 280px;
+            height: 280px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 25px;
+        }
+
+        .text-output {
+            font-family: monospace;
+            color: var(--text);
+            font-size: 1rem;
+            line-height: 1.6;
+            opacity: 0;
+            transition: opacity 1s ease;
+        }
+
+        .step-section.active .text-output {
+            opacity: 1;
+        }
+
+        /* Media queries for responsive design */
+        @media (max-width: 768px) {
+            .step-content {
+                flex-direction: column;
+            }
+            
+            .step-visual, .step-explanation {
+                width: 100%;
+            }
+            
+            .progress-container {
+                right: 10px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .step-title {
+                font-size: 1.5rem;
+            }
+            
+            .step-number {
+                font-size: 3rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="progress-container">
+        <div class="progress-step" data-step="1"></div>
+        <div class="progress-step" data-step="2"></div>
+        <div class="progress-step" data-step="3"></div>
+        <div class="progress-step" data-step="4"></div>
+        <div class="progress-step" data-step="5"></div>
+    </div>
+
+    <div class="container">
+        <header>
+            <h1>Vision Language Model (VLM) <span class="accent">Interactive Visualization</span></h1>
+            <p class="description">
+                Explore how Vision Language Models process images and generate text responses.
+                Scroll through each stage of the VLM pipeline to understand the internal processing.
+            </p>
+            <div class="scroll-indicator">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 5V19M12 19L19 12M12 19L5 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                Scroll to begin
+            </div>
+        </header>
+
+        <section class="step-section" id="step1" data-step="1">
+            <div class="step-header">
+                <div class="step-number">01</div>
+                <div class="step-title">Image Input</div>
+            </div>
+            <div class="step-content">
+                <div class="step-visual">
+                    <div class="mock-image" id="inputImage">
+                        <div class="shape circle" style="top: 50px; left: 60px;"></div>
+                        <div class="shape square" style="bottom: 60px; left: 40px;"></div>
+                        <div class="shape triangle" style="top: 80px; right: 60px;"></div>
+                    </div>
+                </div>
+                <div class="step-explanation">
+                    <p>The VLM receives an image as input. The image could be a photograph, diagram, chart, or any visual content. The model will process this visual information to understand its content and context.</p>
+                    <p>In this example, we're using a simple image containing basic geometric shapes: a blue circle, a pink square, and a green triangle.</p>
+                    <p>The first stage of processing simply involves receiving the raw pixel data from the image, which will be fed into the model's visual encoder.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="step-section" id="step2" data-step="2">
+            <div class="step-header">
+                <div class="step-number">02</div>
+                <div class="step-title">Visual Encoder</div>
+            </div>
+            <div class="step-content">
+                <div class="step-visual">
+                    <div class="visual-features-container" id="visualFeatures"></div>
+                </div>
+                <div class="step-explanation">
+                    <p>The image is processed by a visual encoder (typically a CNN or Vision Transformer), which extracts visual features from the image. These features represent objects, shapes, textures, and other visual elements.</p>
+                    <p>The encoder breaks down the image into a grid of smaller patches and processes each patch to extract meaningful features. This creates a representation that captures the visual content.</p>
+                    <p>This transformation allows the model to identify key aspects of the image such as edges, colors, shapes, and potential objects, creating a foundation for understanding what the image contains.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="step-section" id="step3" data-step="3">
+            <div class="step-header">
+                <div class="step-number">03</div>
+                <div class="step-title">Embeddings</div>
+            </div>
+            <div class="step-content">
+                <div class="step-visual">
+                    <div class="embedding-container" id="embeddingContainer"></div>
+                </div>
+                <div class="step-explanation">
+                    <p>The visual features are converted into embeddings - high-dimensional vector representations that capture semantic meaning. These embeddings represent the image in a format that can be processed by the language components of the model.</p>
+                    <p>Each vector in this high-dimensional space encodes information about the visual content, allowing the model to understand the semantic relationships between different elements.</p>
+                    <p>These embeddings bridge the gap between visual understanding and language processing, creating a shared representation space where both modalities can interact.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="step-section" id="step4" data-step="4">
+            <div class="step-header">
+                <div class="step-number">04</div>
+                <div class="step-title">Attention Mechanism</div>
+            </div>
+            <div class="step-content">
+                <div class="step-visual">
+                    <div class="attention-container" id="attentionContainer"></div>
+                </div>
+                <div class="step-explanation">
+                    <p>Transformer-based attention mechanisms allow the model to focus on relevant parts of the image when generating text. Multiple attention heads work in parallel to capture different aspects of the visual information.</p>
+                    <p>Each attention head learns to recognize specific patterns and relationships, allowing the model to understand complex visual scenes and their components.</p>
+                    <p>This multi-headed attention enables the model to simultaneously focus on different aspects of the image, such as object relationships, spatial arrangements, and visual attributes.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="step-section" id="step5" data-step="5">
+            <div class="step-header">
+                <div class="step-number">05</div>
+                <div class="step-title">Text Generation</div>
+            </div>
+            <div class="step-content">
+                <div class="step-visual">
+                    <div class="text-output-container">
+                        <div class="text-output" id="textOutput">This image contains geometric shapes including a blue circle, a pink square, and a green triangle arranged in a simple composition.</div>
+                    </div>
+                </div>
+                <div class="step-explanation">
+                    <p>Finally, the decoder part of the model generates relevant text based on the processed visual information. The model can describe the image, answer questions about it, or follow instructions related to the visual content.</p>
+                    <p>The generated output is based on the model's understanding of the visual elements and their relationships, combined with its language capabilities.</p>
+                    <p>The model produces a coherent textual description that accurately reflects what it has identified in the image, drawing on both its visual processing and language generation capabilities.</p>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const stepSections = document.querySelectorAll('.step-section');
+            const progressSteps = document.querySelectorAll('.progress-step');
+            const visualFeatures = document.getElementById('visualFeatures');
+            const embeddingContainer = document.getElementById('embeddingContainer');
+            const attentionContainer = document.getElementById('attentionContainer');
+            
+            // Create visual features
+            for (let i = 0; i < 36; i++) {
+                const feature = document.createElement('div');
+                feature.className = 'visual-feature';
+                feature.style.transitionDelay = `${i * 30}ms`;
+                visualFeatures.appendChild(feature);
+            }
+
+            // Create embedding vectors
+            for (let i = 0; i < 24; i++) {
+                const vector = document.createElement('div');
+                vector.className = 'embedding-vector';
+                vector.style.transform = `rotate(${i * 15}deg)`;
+                vector.style.setProperty('--vector-height', `${30 + Math.random() * 70}px`);
+                vector.style.transitionDelay = `${i * 50}ms`;
+                embeddingContainer.appendChild(vector);
+            }
+
+            // Create attention heads
+            for (let i = 0; i < 9; i++) {
+                const head = document.createElement('div');
+                head.className = 'attention-head';
+                head.style.transitionDelay = `${i * 100}ms`;
+                attentionContainer.appendChild(head);
+            }
+
+            // Intersection Observer for scrollytelling
+            const observerOptions = {
+                root: null,
+                rootMargin: '-10% 0px -10% 0px',
+                threshold: 0.6
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const step = entry.target;
+                        const stepNumber = step.dataset.step;
+                        
+                        // Activate current step
+                        step.classList.add('active');
+                        
+                        // Update progress indicator
+                        progressSteps.forEach(marker => {
+                            if (marker.dataset.step === stepNumber) {
+                                marker.classList.add('active');
+                            } else {
+                                marker.classList.remove('active');
+                            }
+                        });
+                        
+                        // Deactivate other steps
+                        stepSections.forEach(otherStep => {
+                            if (otherStep !== step) {
+                                otherStep.classList.remove('active');
+                            }
+                        });
+                    }
+                });
+            }, observerOptions);
+
+            // Observe all step sections
+            stepSections.forEach(step => {
+                observer.observe(step);
+            });
+
+            // Add click handlers to progress steps for navigation
+            progressSteps.forEach(step => {
+                step.addEventListener('click', () => {
+                    const targetStep = document.getElementById(`step${step.dataset.step}`);
+                    targetStep.scrollIntoView({ behavior: 'smooth' });
+                });
+            });
+
+            // Animate shapes
+            function animateShapes() {
+                const shapes = document.querySelectorAll('.shape');
+                shapes.forEach(shape => {
+                    // Add subtle animation to shapes
+                    setInterval(() => {
+                        const xOffset = Math.random() * 10 - 5;
+                        const yOffset = Math.random() * 10 - 5;
+                        
+                        const currentTop = parseInt(shape.style.top || '0');
+                        const currentLeft = parseInt(shape.style.left || '0');
+                        const currentRight = parseInt(shape.style.right || '0');
+                        const currentBottom = parseInt(shape.style.bottom || '0');
+                        
+                        if (shape.style.top) shape.style.top = `${currentTop + yOffset}px`;
+                        if (shape.style.left) shape.style.left = `${currentLeft + xOffset}px`;
+                        if (shape.style.right) shape.style.right = `${currentRight - xOffset}px`;
+                        if (shape.style.bottom) shape.style.bottom = `${currentBottom - yOffset}px`;
+                    }, 3000);
+                });
+            }
+            
+            animateShapes();
+        });
+    </script>
+</body>
+</html>
